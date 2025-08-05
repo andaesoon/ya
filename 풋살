@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<풋살 팀 배정>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -19,8 +19,8 @@
 
         <!-- 1. 참가 인원 파악 섹션 -->
         <div class="mb-8 p-6 bg-gray-50 rounded-lg">
-            <h2 class="text-xl font-semibold mb-4">1. 참가 인원 파악 (시뮬레이션)</h2>
-            <div class="flex items-center space-x-4">
+            <h2 class="text-xl font-semibold mb-4">1. 참가 인원 파악</h2>
+            <div class="flex items-center space-x-4 mb-4">
                 <input type="file" id="imageUpload" accept="image/*" class="flex-1 text-sm text-gray-500
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-full file:border-0
@@ -29,9 +29,14 @@
                     hover:file:bg-blue-100 cursor-pointer">
                 <button onclick="uploadImage()" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-full shadow hover:bg-blue-700 transition duration-300">인원 파악</button>
             </div>
+            <!-- 수동으로 인원 추가 기능 -->
+            <div class="flex items-center space-x-2">
+                <input type="text" id="manualPlayerInput" placeholder="이름을 입력하세요" class="flex-1 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="addPlayerManually()" class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-full shadow hover:bg-purple-700 transition duration-300">수동으로 추가</button>
+            </div>
             <p id="statusMessage" class="mt-4 text-gray-600"></p>
             <div id="playerList" class="mt-4 p-4 bg-white border border-gray-200 rounded-lg min-h-[5rem] flex flex-wrap gap-2">
-                <p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>
+                <p class="text-gray-400">인원 파악 버튼을 누르거나 이름을 직접 추가해주세요.</p>
             </div>
         </div>
 
@@ -69,35 +74,110 @@
     </div>
 
     <script>
-        // 전역 변수 초기화
+        // Global variables for managing state
         let allPlayers = [];
         let selectedPlayers = new Set();
         let groups = {};
 
         /**
-         * 인원 파악 기능을 시뮬레이션하는 함수.
-         * 실제로는 서버의 OCR API를 호출해야 하지만, 여기서는 미리 정의된 명단을 사용합니다.
+         * Converts a file to a Base64 string.
+         * @param {File} file The file to convert.
+         * @returns {Promise<string>} The Base64 string of the file.
          */
-        function uploadImage() {
-            // 실제 OCR API를 호출하는 대신, 미리 정의된 참가자 명단을 사용합니다.
-            const dummyPlayers = [
-                "김민준", "이서준", "박도윤", "최은우", "정하준", "강지원", "윤지우", "임시우", "홍채은",
-                "00지인1", "00지인2", "00"
-            ];
+        const fileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        };
+
+        /**
+         * Uploads an image and uses the Gemini API to identify names.
+         */
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageUpload');
+            const file = fileInput.files[0];
+            const status = document.getElementById('statusMessage');
             
-            allPlayers = [...new Set(dummyPlayers)]; // 중복 제거
-            document.getElementById('statusMessage').textContent = `${allPlayers.length}명의 인원을 파악했습니다.`;
-            renderPlayers();
+            if (!file) {
+                status.textContent = '이미지 파일을 선택해주세요.';
+                return;
+            }
+
+            status.textContent = '이미지 분석 중... 잠시만 기다려 주세요.';
+            const playerList = document.getElementById('playerList');
+            playerList.innerHTML = '<p class="text-gray-400">이미지를 분석하고 있습니다...</p>';
+
+            try {
+                const base64ImageData = await fileToBase64(file);
+                
+                // Construct the prompt for the Gemini API
+                const prompt = "Please identify and list the names of the people from the image. Respond with a comma-separated list of names only, for example: 'Anderson, 국주, 김남혁'. Do not include any other text or explanation.";
+                
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: file.type,
+                                    data: base64ImageData
+                                }
+                            }
+                        ]
+                    }],
+                };
+
+                const apiKey = "AIzaSyCWpt1uxNSdV2B_QKV5B1G7Vd6osT3xCIc";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    const text = result.candidates[0].content.parts[0].text;
+                    const names = text.split(',').map(name => name.trim()).filter(name => name);
+                    
+                    allPlayers = [...new Set(names)]; // Remove duplicates
+                    
+                    if (allPlayers.length > 0) {
+                        status.textContent = `${allPlayers.length}명의 인원을 파악했습니다.`;
+                        renderPlayers();
+                    } else {
+                        status.textContent = '이미지에서 이름을 찾을 수 없습니다.';
+                        playerList.innerHTML = '<p class="text-gray-400">이름을 찾을 수 없습니다. 다른 이미지를 사용해 보세요.</p>';
+                    }
+                } else {
+                    status.textContent = '이미지 분석에 실패했습니다. 응답 형식이 올바르지 않습니다.';
+                    console.error('API response error:', result);
+                }
+
+            } catch (error) {
+                status.textContent = `통신 오류: ${error.message}`;
+                console.error('Fetch error:', error);
+            }
         }
 
         /**
-         * 참가자 목록을 화면에 렌더링하는 함수입니다.
+         * Renders the list of players on the screen.
          */
         function renderPlayers() {
             const playerList = document.getElementById('playerList');
-            playerList.innerHTML = ''; // 기존 목록 초기화
+            playerList.innerHTML = ''; // Clear existing list
             if (allPlayers.length === 0) {
-                playerList.innerHTML = '<p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>';
+                playerList.innerHTML = '<p class="text-gray-400">인원 파악 버튼을 누르거나 이름을 직접 추가해주세요.</p>';
                 return;
             }
 
@@ -111,7 +191,9 @@
         }
 
         /**
-         * 참가자 선택/해제 상태를 토글하는 함수입니다.
+         * Toggles the selection state of a player.
+         * @param {HTMLElement} element The player element to toggle.
+         * @param {string} player The name of the player.
          */
         function togglePlayerSelection(element, player) {
             if (selectedPlayers.has(player)) {
@@ -126,7 +208,7 @@
         }
 
         /**
-         * 선택된 인원들을 그룹으로 지정하는 함수입니다.
+         * Assigns selected players to a group.
          */
         function addGroup() {
             if (selectedPlayers.size === 0) {
@@ -140,11 +222,11 @@
                 return;
             }
 
-            // Set을 배열로 변환하여 그룹에 저장
+            // Convert Set to array and store in groups
             groups[groupName] = Array.from(selectedPlayers);
             renderGroups();
             
-            // 그룹 지정 후 선택 상태 및 입력 필드 초기화
+            // Reset selection and input field after grouping
             selectedPlayers.clear();
             document.querySelectorAll('#playerList span').forEach(el => {
                 el.classList.remove('bg-blue-600', 'text-white', 'scale-105');
@@ -152,13 +234,36 @@
             });
             groupNameInput.value = '';
         }
+        
+        /**
+         * Manually adds a player to the list.
+         */
+        function addPlayerManually() {
+            const manualInput = document.getElementById('manualPlayerInput');
+            const playerName = manualInput.value.trim();
+
+            if (playerName) {
+                // Add the player if they don't already exist
+                if (!allPlayers.includes(playerName)) {
+                    allPlayers.push(playerName);
+                    renderPlayers();
+                    // Clear the input field after adding
+                    manualInput.value = '';
+                    document.getElementById('statusMessage').textContent = `"${playerName}"님이 명단에 추가되었습니다.`;
+                } else {
+                    document.getElementById('statusMessage').textContent = `"${playerName}"님은 이미 명단에 있습니다.`;
+                }
+            } else {
+                document.getElementById('statusMessage').textContent = '추가할 이름을 입력해주세요.';
+            }
+        }
 
         /**
-         * 지정된 그룹 목록을 화면에 렌더링하는 함수입니다.
+         * Renders the list of groups on the screen.
          */
         function renderGroups() {
             const groupList = document.getElementById('groupList');
-            groupList.innerHTML = ''; // 기존 목록 초기화
+            groupList.innerHTML = ''; // Clear existing list
             const groupNames = Object.keys(groups);
             if (groupNames.length === 0) {
                 groupList.innerHTML = '<p class="text-gray-400">그룹이 지정되지 않았습니다.</p>';
@@ -174,7 +279,7 @@
         }
 
         /**
-         * 팀 자동 편성을 실행하는 함수입니다.
+         * Generates teams based on the configured settings, ensuring equal team sizes.
          */
         function generateTeams() {
             if (allPlayers.length === 0) {
@@ -190,29 +295,37 @@
             const teams = Array.from({ length: teamCount }, () => []);
             let remainingPlayers = [...allPlayers];
 
-            // 1. 그룹에 속한 인원들을 우선 배정
-            for (const groupName in groups) {
-                // 그룹 멤버 중 '00'이 포함된 경우, 그 그룹을 한 팀에 배정합니다.
-                const groupMembers = groups[groupName];
-                const teamIndex = Math.floor(Math.random() * teamCount);
+            // 1. 그룹에 속한 인원들을 균등하게 배정 (그룹이 큰 순서대로)
+            const groupsArray = Object.values(groups).sort((a, b) => b.length - a.length);
+
+            for (const group of groupsArray) {
+                // 현재 인원수가 가장 적은 팀을 찾아 그룹 배정
+                const minTeamIndex = teams.reduce((minIndex, currentTeam, currentIndex, arr) => {
+                    return currentTeam.length < arr[minIndex].length ? currentIndex : minIndex;
+                }, 0);
                 
-                teams[teamIndex].push(...groupMembers);
+                teams[minTeamIndex].push(...group);
                 
                 // 배정된 멤버를 남은 인원에서 제거
-                remainingPlayers = remainingPlayers.filter(player => !groupMembers.includes(player));
+                remainingPlayers = remainingPlayers.filter(player => !group.includes(player));
             }
 
-            // 2. 남은 인원들을 무작위로 분배
+            // 2. 남은 인원들을 무작위로 섞어 균등하게 분배
             remainingPlayers.sort(() => Math.random() - 0.5);
             remainingPlayers.forEach((player, index) => {
-                teams[index % teamCount].push(player);
+                // 다시 한 번 현재 인원수가 가장 적은 팀에 배정
+                const minTeamIndex = teams.reduce((minIndex, currentTeam, currentIndex, arr) => {
+                    return currentTeam.length < arr[minIndex].length ? currentIndex : minIndex;
+                }, 0);
+                teams[minTeamIndex].push(player);
             });
 
             renderTeams(teams);
         }
 
         /**
-         * 편성된 팀을 화면에 렌더링하는 함수입니다.
+         * Renders the generated teams on the screen.
+         * @param {Array<Array<string>>} teams An array of arrays, where each inner array represents a team.
          */
         function renderTeams(teams) {
             const teamResults = document.getElementById('teamResults');
