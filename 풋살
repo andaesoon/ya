@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 풋살 팀 편성</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 min-h-screen flex flex-col items-center">
+    
+    <div class="container mx-auto p-6 bg-white rounded-xl shadow-lg w-full max-w-2xl">
+        <h1 class="text-3xl font-bold text-center mb-6">스마트 풋살 팀 편성</h1>
+
+        <!-- 1. 참가 인원 파악 섹션 -->
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">1. 참가 인원 파악 (시뮬레이션)</h2>
+            <div class="flex items-center space-x-4">
+                <input type="file" id="imageUpload" accept="image/*" class="flex-1 text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100 cursor-pointer">
+                <button onclick="uploadImage()" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-full shadow hover:bg-blue-700 transition duration-300">인원 파악</button>
+            </div>
+            <p id="statusMessage" class="mt-4 text-gray-600"></p>
+            <div id="playerList" class="mt-4 p-4 bg-white border border-gray-200 rounded-lg min-h-[5rem] flex flex-wrap gap-2">
+                <p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>
+            </div>
+        </div>
+
+        <!-- 2. 팀 설정 및 그룹 지정 섹션 -->
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">2. 팀 설정 및 그룹 지정</h2>
+            <div class="mb-4">
+                <label for="teamCount" class="block text-sm font-medium text-gray-700 mb-1">팀 개수:</label>
+                <select id="teamCount" class="block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    <option value="2">2팀</option>
+                    <option value="3">3팀</option>
+                    <option value="4">4팀</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <h3 class="font-medium text-lg mb-2">지인 그룹 지정</h3>
+                <div class="flex space-x-2">
+                    <input type="text" id="groupName" placeholder="그룹명 입력 (예: 00지인)" class="flex-1 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="addGroup()" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-full shadow hover:bg-green-700 transition duration-300">그룹으로 묶기</button>
+                </div>
+            </div>
+            <div id="groupList" class="mt-4 p-4 bg-white border border-gray-200 rounded-lg min-h-[4rem]">
+                <p class="text-gray-400">그룹이 지정되지 않았습니다.</p>
+            </div>
+        </div>
+
+        <!-- 3. 팀 편성 및 결과 섹션 -->
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">3. 팀 편성</h2>
+            <button onclick="generateTeams()" class="w-full py-3 bg-indigo-600 text-white font-bold text-lg rounded-full shadow hover:bg-indigo-700 transition duration-300">팀 자동 편성</button>
+            <div id="teamResults" class="mt-4 p-4 bg-white border border-gray-200 rounded-lg min-h-[10rem]">
+                <p class="text-gray-400 text-center">여기에 팀 편성 결과가 표시됩니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수 초기화
+        let allPlayers = [];
+        let selectedPlayers = new Set();
+        let groups = {};
+
+        /**
+         * 인원 파악 기능을 시뮬레이션하는 함수.
+         * 실제로는 서버의 OCR API를 호출해야 하지만, 여기서는 미리 정의된 명단을 사용합니다.
+         */
+        function uploadImage() {
+            // 실제 OCR API를 호출하는 대신, 미리 정의된 참가자 명단을 사용합니다.
+            const dummyPlayers = [
+                "김민준", "이서준", "박도윤", "최은우", "정하준", "강지원", "윤지우", "임시우", "홍채은",
+                "00지인1", "00지인2", "00"
+            ];
+            
+            allPlayers = [...new Set(dummyPlayers)]; // 중복 제거
+            document.getElementById('statusMessage').textContent = `${allPlayers.length}명의 인원을 파악했습니다.`;
+            renderPlayers();
+        }
+
+        /**
+         * 참가자 목록을 화면에 렌더링하는 함수입니다.
+         */
+        function renderPlayers() {
+            const playerList = document.getElementById('playerList');
+            playerList.innerHTML = ''; // 기존 목록 초기화
+            if (allPlayers.length === 0) {
+                playerList.innerHTML = '<p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>';
+                return;
+            }
+
+            allPlayers.forEach(player => {
+                const span = document.createElement('span');
+                span.textContent = player;
+                span.classList.add('px-4', 'py-1', 'bg-gray-200', 'rounded-full', 'cursor-pointer', 'hover:bg-blue-300', 'transition', 'duration-150');
+                span.onclick = () => togglePlayerSelection(span, player);
+                playerList.appendChild(span);
+            });
+        }
+
+        /**
+         * 참가자 선택/해제 상태를 토글하는 함수입니다.
+         */
+        function togglePlayerSelection(element, player) {
+            if (selectedPlayers.has(player)) {
+                selectedPlayers.delete(player);
+                element.classList.remove('bg-blue-600', 'text-white', 'scale-105');
+                element.classList.add('bg-gray-200');
+            } else {
+                selectedPlayers.add(player);
+                element.classList.remove('bg-gray-200');
+                element.classList.add('bg-blue-600', 'text-white', 'scale-105');
+            }
+        }
+
+        /**
+         * 선택된 인원들을 그룹으로 지정하는 함수입니다.
+         */
+        function addGroup() {
+            if (selectedPlayers.size === 0) {
+                alert('그룹으로 묶을 인원을 선택해주세요.');
+                return;
+            }
+            const groupNameInput = document.getElementById('groupName');
+            const groupName = groupNameInput.value.trim();
+            if (!groupName) {
+                alert('그룹명을 입력해주세요.');
+                return;
+            }
+
+            // Set을 배열로 변환하여 그룹에 저장
+            groups[groupName] = Array.from(selectedPlayers);
+            renderGroups();
+            
+            // 그룹 지정 후 선택 상태 및 입력 필드 초기화
+            selectedPlayers.clear();
+            document.querySelectorAll('#playerList span').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white', 'scale-105');
+                el.classList.add('bg-gray-200');
+            });
+            groupNameInput.value = '';
+        }
+
+        /**
+         * 지정된 그룹 목록을 화면에 렌더링하는 함수입니다.
+         */
+        function renderGroups() {
+            const groupList = document.getElementById('groupList');
+            groupList.innerHTML = ''; // 기존 목록 초기화
+            const groupNames = Object.keys(groups);
+            if (groupNames.length === 0) {
+                groupList.innerHTML = '<p class="text-gray-400">그룹이 지정되지 않았습니다.</p>';
+                return;
+            }
+
+            groupNames.forEach(name => {
+                const div = document.createElement('div');
+                div.classList.add('p-2', 'bg-white', 'rounded-md', 'shadow-sm', 'border', 'border-gray-100');
+                div.innerHTML = `<strong class="text-blue-700">${name}</strong>: ${groups[name].join(', ')}`;
+                groupList.appendChild(div);
+            });
+        }
+
+        /**
+         * 팀 자동 편성을 실행하는 함수입니다.
+         */
+        function generateTeams() {
+            if (allPlayers.length === 0) {
+                alert('먼저 참가 인원을 파악해주세요.');
+                return;
+            }
+
+            const teamCount = parseInt(document.getElementById('teamCount').value, 10);
+            const teamResults = document.getElementById('teamResults');
+            teamResults.innerHTML = '<p class="text-gray-600 text-center">팀 편성 중...</p>';
+
+            // 팀 편성 로직
+            const teams = Array.from({ length: teamCount }, () => []);
+            let remainingPlayers = [...allPlayers];
+
+            // 1. 그룹에 속한 인원들을 우선 배정
+            for (const groupName in groups) {
+                // 그룹 멤버 중 '00'이 포함된 경우, 그 그룹을 한 팀에 배정합니다.
+                const groupMembers = groups[groupName];
+                const teamIndex = Math.floor(Math.random() * teamCount);
+                
+                teams[teamIndex].push(...groupMembers);
+                
+                // 배정된 멤버를 남은 인원에서 제거
+                remainingPlayers = remainingPlayers.filter(player => !groupMembers.includes(player));
+            }
+
+            // 2. 남은 인원들을 무작위로 분배
+            remainingPlayers.sort(() => Math.random() - 0.5);
+            remainingPlayers.forEach((player, index) => {
+                teams[index % teamCount].push(player);
+            });
+
+            renderTeams(teams);
+        }
+
+        /**
+         * 편성된 팀을 화면에 렌더링하는 함수입니다.
+         */
+        function renderTeams(teams) {
+            const teamResults = document.getElementById('teamResults');
+            teamResults.innerHTML = '';
+
+            if (teams.length === 0) {
+                teamResults.innerHTML = '<p class="text-gray-400 text-center">팀 편성 결과가 없습니다.</p>';
+                return;
+            }
+
+            teams.forEach((team, index) => {
+                const teamDiv = document.createElement('div');
+                teamDiv.classList.add('team-box', 'bg-white', 'rounded-lg', 'shadow', 'p-4', 'mb-2');
+                teamDiv.innerHTML = `
+                    <h3 class="font-bold text-xl text-indigo-700">팀 ${index + 1} <span class="text-sm font-normal text-gray-500">(${team.length}명)</span></h3>
+                    <p class="mt-2 text-gray-700">${team.join(', ')}</p>
+                `;
+                teamResults.appendChild(teamDiv);
+            });
+        }
+    </script>
+</body>
+</html>
