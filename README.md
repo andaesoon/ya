@@ -1,4 +1,3 @@
-# 풋살
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -21,7 +20,7 @@
         <!-- 1. 참가 인원 파악 섹션 -->
         <div class="mb-8 p-6 bg-gray-50 rounded-lg">
             <h2 class="text-xl font-semibold mb-4">1. 참가 인원 파악</h2>
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-4 mb-4">
                 <input type="file" id="imageUpload" accept="image/*" class="flex-1 text-sm text-gray-500
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-full file:border-0
@@ -30,9 +29,14 @@
                     hover:file:bg-blue-100 cursor-pointer">
                 <button onclick="uploadImage()" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-full shadow hover:bg-blue-700 transition duration-300">인원 파악</button>
             </div>
+            <!-- 수동으로 인원 추가 기능 -->
+            <div class="flex items-center space-x-2">
+                <input type="text" id="manualPlayerInput" placeholder="이름을 입력하세요" class="flex-1 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="addPlayerManually()" class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-full shadow hover:bg-purple-700 transition duration-300">수동으로 추가</button>
+            </div>
             <p id="statusMessage" class="mt-4 text-gray-600"></p>
             <div id="playerList" class="mt-4 p-4 bg-white border border-gray-200 rounded-lg min-h-[5rem] flex flex-wrap gap-2">
-                <p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>
+                <p class="text-gray-400">인원 파악 버튼을 누르거나 이름을 직접 추가해주세요.</p>
             </div>
         </div>
 
@@ -173,7 +177,7 @@
             const playerList = document.getElementById('playerList');
             playerList.innerHTML = ''; // Clear existing list
             if (allPlayers.length === 0) {
-                playerList.innerHTML = '<p class="text-gray-400">인원 파악 버튼을 눌러주세요.</p>';
+                playerList.innerHTML = '<p class="text-gray-400">인원 파악 버튼을 누르거나 이름을 직접 추가해주세요.</p>';
                 return;
             }
 
@@ -229,6 +233,29 @@
                 el.classList.add('bg-gray-200');
             });
             groupNameInput.value = '';
+        }
+        
+        /**
+         * Manually adds a player to the list.
+         */
+        function addPlayerManually() {
+            const manualInput = document.getElementById('manualPlayerInput');
+            const playerName = manualInput.value.trim();
+
+            if (playerName) {
+                // Add the player if they don't already exist
+                if (!allPlayers.includes(playerName)) {
+                    allPlayers.push(playerName);
+                    renderPlayers();
+                    // Clear the input field after adding
+                    manualInput.value = '';
+                    document.getElementById('statusMessage').textContent = `"${playerName}"님이 명단에 추가되었습니다.`;
+                } else {
+                    document.getElementById('statusMessage').textContent = `"${playerName}"님은 이미 명단에 있습니다.`;
+                }
+            } else {
+                document.getElementById('statusMessage').textContent = '추가할 이름을 입력해주세요.';
+            }
         }
 
         /**
